@@ -103,6 +103,7 @@
             <div class="panel-header">
               <h2>Optimized Prompt</h2>
               <div class="button-group">
+                <button id="saveBtn" type="button">Save</button>
                 <button id="copyBtn" type="button">Copy</button>
                 <button id="downloadBtn" type="button">Download</button>
               </div>
@@ -125,6 +126,20 @@
             </div>
           </section>
         </div>
+
+        <section class="panel memory-panel" aria-label="Prompt memory">
+          <div class="panel-header memory-header">
+            <div>
+              <h2>Prompt Memory</h2>
+              <small id="memoryCount">0 saved prompts</small>
+            </div>
+            <div class="button-group">
+              <button id="exportMemoryBtn" type="button">Export</button>
+              <button id="clearMemoryBtn" type="button">Clear memory</button>
+            </div>
+          </div>
+          <div class="memory-list" id="memoryList"></div>
+        </section>
       </section>
     </main>
 

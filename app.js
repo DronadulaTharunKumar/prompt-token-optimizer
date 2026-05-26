@@ -18,9 +18,13 @@ const clarity = document.querySelector("#clarity");
 const compression = document.querySelector("#compression");
 const generateBtn = document.querySelector("#generateBtn");
 const statusLine = document.querySelector("#statusLine");
+const memoryList = document.querySelector("#memoryList");
+const memoryCount = document.querySelector("#memoryCount");
 
 let imageInfo = null;
 let imageDataUrl = "";
+let promptMemory = [];
+const memoryKey = "prompt-token-optimizer-memory";
 
 const taskFrames = {
   answer: {
@@ -189,6 +193,149 @@ function updateMetrics() {
   clarity.textContent = optimized ? (nextScore > 82 ? "Strong" : nextScore > 65 ? "Good" : "Basic") : "Waiting";
 }
 
+function loadMemory() {
+  try {
+    promptMemory = JSON.parse(localStorage.getItem(memoryKey) || "[]");
+  } catch (error) {
+    promptMemory = [];
+  }
+  renderMemory();
+}
+
+function persistMemory() {
+  localStorage.setItem(memoryKey, JSON.stringify(promptMemory));
+}
+
+function summarize(text, length = 130) {
+  const compact = text.replace(/\s+/g, " ").trim();
+  return compact.length > length ? `${compact.slice(0, length).trim()}...` : compact;
+}
+
+function getMemoryTitle(text) {
+  const firstLine = text.split("\n").find((line) => line.trim()) || "Saved prompt";
+  return summarize(firstLine.replace(/^#+\s*/, ""), 62);
+}
+
+function renderMemory() {
+  memoryCount.textContent = `${promptMemory.length} saved prompt${promptMemory.length === 1 ? "" : "s"}`;
+  memoryList.innerHTML = "";
+
+  if (!promptMemory.length) {
+    const empty = document.createElement("p");
+    empty.className = "memory-empty";
+    empty.textContent = "Saved prompts will appear here.";
+    memoryList.appendChild(empty);
+    return;
+  }
+
+  promptMemory.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "memory-item";
+
+    const title = document.createElement("h3");
+    title.textContent = item.title;
+
+    const previewText = document.createElement("p");
+    previewText.textContent = summarize(item.prompt);
+
+    const meta = document.createElement("div");
+    meta.className = "memory-meta";
+    meta.innerHTML = `<small>${item.taskType}</small><small>${new Date(item.createdAt).toLocaleDateString()}</small>`;
+
+    const actions = document.createElement("div");
+    actions.className = "memory-actions";
+
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.textContent = "Load";
+    loadBtn.addEventListener("click", () => loadSavedPrompt(item.id));
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(item.prompt);
+      setStatus("Saved prompt copied.", "success");
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", () => deleteSavedPrompt(item.id));
+
+    actions.append(loadBtn, copyBtn, deleteBtn);
+    card.append(title, previewText, meta, actions);
+    memoryList.appendChild(card);
+  });
+}
+
+function savePrompt() {
+  if (!optimizedPrompt.value.trim()) {
+    generatePrompt();
+  }
+
+  const prompt = optimizedPrompt.value.trim();
+  const existingIndex = promptMemory.findIndex((item) => item.prompt === prompt);
+  const saved = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    title: getMemoryTitle(prompt),
+    prompt,
+    source: sourceText.value,
+    taskType: taskType.value,
+    tone: tone.value,
+    budget: Number(budget.value),
+    createdAt: new Date().toISOString()
+  };
+
+  if (existingIndex >= 0) {
+    promptMemory.splice(existingIndex, 1);
+  }
+
+  promptMemory.unshift(saved);
+  promptMemory = promptMemory.slice(0, 30);
+  persistMemory();
+  renderMemory();
+  setStatus("Prompt saved to memory.", "success");
+}
+
+function loadSavedPrompt(id) {
+  const item = promptMemory.find((entry) => entry.id === id);
+  if (!item) return;
+
+  sourceText.value = item.source || "";
+  optimizedPrompt.value = item.prompt;
+  taskType.value = item.taskType || "creative";
+  tone.value = item.tone || "proCreative";
+  budget.value = item.budget || 650;
+  budgetLabel.textContent = `${budget.value} tokens`;
+  updateMetrics();
+  setStatus("Saved prompt loaded.", "success");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function deleteSavedPrompt(id) {
+  promptMemory = promptMemory.filter((item) => item.id !== id);
+  persistMemory();
+  renderMemory();
+  setStatus("Saved prompt deleted.", "success");
+}
+
+function exportMemory() {
+  const blob = new Blob([JSON.stringify(promptMemory, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "prompt-memory.json";
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function clearMemory() {
+  promptMemory = [];
+  persistMemory();
+  renderMemory();
+  setStatus("Prompt memory cleared.", "success");
+}
+
 function generatePrompt() {
   optimizedPrompt.value = buildPrompt();
   setStatus("Local fallback prompt generated.", "success");
@@ -317,8 +464,12 @@ includeImage.addEventListener("change", generatePrompt);
 imageInput.addEventListener("change", (event) => readImage(event.target.files[0]));
 generateBtn.addEventListener("click", generateAiPrompt);
 document.querySelector("#sampleBtn").addEventListener("click", useSample);
+document.querySelector("#saveBtn").addEventListener("click", savePrompt);
 document.querySelector("#copyBtn").addEventListener("click", copyPrompt);
 document.querySelector("#downloadBtn").addEventListener("click", downloadPrompt);
 document.querySelector("#clearBtn").addEventListener("click", clearAll);
+document.querySelector("#exportMemoryBtn").addEventListener("click", exportMemory);
+document.querySelector("#clearMemoryBtn").addEventListener("click", clearMemory);
 
+loadMemory();
 useSample();

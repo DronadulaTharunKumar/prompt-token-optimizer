@@ -334,6 +334,67 @@ button:hover {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.memory-panel {
+  box-shadow: none;
+}
+
+.memory-header {
+  align-items: flex-start;
+}
+
+.memory-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.memory-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+}
+
+.memory-item {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.memory-item h3 {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.memory-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.memory-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.memory-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.memory-actions button {
+  min-height: 34px;
+  padding: 0 8px;
+}
+
 @media (max-width: 900px) {
   .topbar,
   .panes {
@@ -355,5 +416,9 @@ button:hover {
 
   .workspace {
     min-height: auto;
+  }
+
+  .memory-list {
+    grid-template-columns: 1fr;
   }
 }
