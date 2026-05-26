@@ -234,7 +234,7 @@ async function generateAiPrompt() {
     }
 
     optimizedPrompt.value = data.optimized || fallback;
-    setStatus(`AI optimized with ${data.model}.`, "success");
+    setStatus(`AI optimized with ${data.provider || "AI"}: ${data.model}.`, "success");
     updateMetrics();
   } catch (error) {
     optimizedPrompt.value = fallback;
@@ -268,7 +268,7 @@ function clearAll() {
   imageInfo = null;
   imageDataUrl = "";
   imageCard.hidden = true;
-  setStatus("Local fallback ready. Add OpenAI API key for AI optimization.");
+  setStatus("Local fallback ready. Add free Groq API key for AI optimization.");
   updateMetrics();
 }
 

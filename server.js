@@ -77,40 +77,86 @@ function extractResponseText(data) {
   return parts.join("\n").trim();
 }
 
-async function optimizePrompt(req, res) {
-  if (!process.env.OPENAI_API_KEY) {
-    sendJson(res, 503, {
-      error: "OPENAI_API_KEY is not set. Add it to .env or your cloud environment variables."
-    });
-    return;
-  }
+function extractChatText(data) {
+  return data.choices?.[0]?.message?.content?.trim() || "";
+}
 
-  let payload;
-  try {
-    payload = await readJson(req);
-  } catch (error) {
-    sendJson(res, 400, { error: "Invalid JSON request." });
-    return;
-  }
+function buildSystemPrompt() {
+  return [
+    "You are an award-winning creative director and senior prompt engineer.",
+    "Transform rough user material into a compact master prompt that gets premium creative output from an AI model.",
+    "Preserve the user's core idea, remove filler, improve specificity, and add useful constraints.",
+    "If an image is supplied, use only visible evidence and include image-aware instruction in the prompt.",
+    "Return only the optimized prompt. Do not explain your process."
+  ].join("\n");
+}
 
-  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+function buildUserPrompt(payload) {
   const text = String(payload.text || "").slice(0, 80_000);
-  const mode = String(payload.taskType || "creative");
-  const tone = String(payload.tone || "proCreative");
   const budget = Number(payload.budget || 650);
   const imageDataUrl = typeof payload.imageDataUrl === "string" ? payload.imageDataUrl : "";
+  const imageNote = imageDataUrl.startsWith("data:image/")
+    ? "An image was attached. If the selected provider cannot inspect images, include a clear instruction for the final AI model to inspect the attached image directly and use visible evidence only."
+    : "No image was attached.";
 
+  return [
+    `Task type: ${payload.taskType || "creative"}`,
+    `Output style: ${payload.tone || "proCreative"}`,
+    `Target prompt budget: about ${budget} tokens`,
+    imageNote,
+    "",
+    "User material:",
+    text || "No text was provided. Build a reusable pro creative prompt from the available context."
+  ].join("\n");
+}
+
+async function callGroq(payload) {
+  const model = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+  const budget = Number(payload.budget || 650);
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "system",
+          content: buildSystemPrompt()
+        },
+        {
+          role: "user",
+          content: buildUserPrompt(payload)
+        }
+      ],
+      temperature: 0.75,
+      max_completion_tokens: Math.min(Math.max(budget + 250, 350), 1800)
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || "Groq request failed.");
+  }
+
+  return {
+    optimized: extractChatText(data),
+    model,
+    provider: "Groq free-tier model",
+    usage: data.usage || null
+  };
+}
+
+async function callOpenAi(payload) {
+  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const budget = Number(payload.budget || 650);
+  const imageDataUrl = typeof payload.imageDataUrl === "string" ? payload.imageDataUrl : "";
   const userContent = [
     {
       type: "input_text",
-      text: [
-        `Task type: ${mode}`,
-        `Output style: ${tone}`,
-        `Target prompt budget: about ${budget} tokens`,
-        "",
-        "User material:",
-        text || "No text was provided. Build a reusable pro creative prompt from the available context."
-      ].join("\n")
+      text: buildUserPrompt(payload)
     }
   ];
 
@@ -121,50 +167,59 @@ async function optimizePrompt(req, res) {
     });
   }
 
-  const openAiPayload = {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model,
+      instructions: buildSystemPrompt(),
+      input: [
+        {
+          role: "user",
+          content: userContent
+        }
+      ],
+      max_output_tokens: Math.min(Math.max(budget + 250, 350), 1800)
+    })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error?.message || "OpenAI request failed.");
+  }
+
+  return {
+    optimized: extractResponseText(data),
     model,
-    instructions: [
-      "You are an award-winning creative director and senior prompt engineer.",
-      "Transform rough user material into a compact master prompt that gets premium creative output from an AI model.",
-      "Preserve the user's core idea, remove filler, improve specificity, and add useful constraints.",
-      "If an image is supplied, use only visible evidence and include image-aware instruction in the prompt.",
-      "Return only the optimized prompt. Do not explain your process."
-    ].join("\n"),
-    input: [
-      {
-        role: "user",
-        content: userContent
-      }
-    ],
-    max_output_tokens: Math.min(Math.max(budget + 250, 350), 1800)
+    provider: "OpenAI",
+    usage: data.usage || null
   };
+}
+
+async function optimizePrompt(req, res) {
+  let payload;
+  try {
+    payload = await readJson(req);
+  } catch (error) {
+    sendJson(res, 400, { error: "Invalid JSON request." });
+    return;
+  }
+
+  if (!process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY) {
+    sendJson(res, 503, {
+      error: "No AI key is set. Add free GROQ_API_KEY to use the free-tier model, or OPENAI_API_KEY for OpenAI."
+    });
+    return;
+  }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(openAiPayload)
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      sendJson(res, response.status, {
-        error: data.error?.message || "OpenAI request failed."
-      });
-      return;
-    }
-
-    const optimized = extractResponseText(data);
-    sendJson(res, 200, {
-      optimized,
-      model,
-      usage: data.usage || null
-    });
+    const result = process.env.GROQ_API_KEY ? await callGroq(payload) : await callOpenAi(payload);
+    sendJson(res, 200, result);
   } catch (error) {
-    sendJson(res, 500, { error: "Unable to reach OpenAI API." });
+    sendJson(res, 500, { error: error.message || "Unable to reach AI provider." });
   }
 }
 

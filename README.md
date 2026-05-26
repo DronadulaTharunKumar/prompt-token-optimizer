@@ -18,13 +18,19 @@ http://localhost:3000
 
 You can still open `index.html` directly if you want the no-server version.
 
-## Enable AI Optimization
+## Enable Free AI Optimization
 
 Create a `.env` file in this folder:
 
 ```text
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4.1-mini
+GROQ_API_KEY=your_free_groq_api_key_here
+GROQ_MODEL=openai/gpt-oss-20b
+```
+
+Get a free Groq API key from:
+
+```text
+https://console.groq.com/keys
 ```
 
 Then restart the server:
@@ -33,7 +39,14 @@ Then restart the server:
 npm start
 ```
 
-Without `OPENAI_API_KEY`, the app still works with its local fallback optimizer. With the key, the browser calls `/api/optimize`, and the server securely sends the request to OpenAI.
+Without `GROQ_API_KEY`, the app still works with its local fallback optimizer. With the key, the browser calls `/api/optimize`, and the server securely sends the request to Groq's free-tier model.
+
+OpenAI is still supported as an optional paid upgrade:
+
+```text
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4.1-mini
+```
 
 ## Deploy To Cloud
 
@@ -41,21 +54,21 @@ Without `OPENAI_API_KEY`, the app still works with its local fallback optimizer.
 
 1. Push this folder to GitHub.
 2. Import the repo in Vercel.
-3. Add environment variable `OPENAI_API_KEY`.
+3. Add environment variable `GROQ_API_KEY`.
 4. Keep the default settings and deploy.
 
 ### Netlify
 
 1. Push this folder to GitHub.
 2. Import the repo in Netlify.
-3. Add environment variable `OPENAI_API_KEY`.
+3. Add environment variable `GROQ_API_KEY`.
 4. Use publish directory `.` and no build command.
 
 ### Render
 
 1. Push this folder to GitHub.
 2. Create a new Render web service from the repo.
-3. Add environment variable `OPENAI_API_KEY`.
+3. Add environment variable `GROQ_API_KEY`.
 4. Render can use `render.yaml`, or set:
 
 ```text
