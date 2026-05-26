@@ -156,7 +156,9 @@ textarea {
 
 textarea:focus,
 select:focus,
-input[type="range"]:focus {
+input[type="range"]:focus,
+input[type="number"]:focus,
+input[type="text"]:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.16);
 }
@@ -264,6 +266,17 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
+input[type="number"],
+input[type="text"] {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: #fff;
+  outline: none;
+}
+
 .check-row {
   display: flex;
   align-items: center;
@@ -332,6 +345,96 @@ button:hover {
 
 .quality-strip {
   grid-template-columns: repeat(3, 1fr);
+}
+
+.optimizer-lab {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfaf5;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #fff;
+  background: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.market-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 18px;
+}
+
+.dashboard-panel,
+.diff-panel {
+  box-shadow: none;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.metric-grid div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.metric-grid strong {
+  display: block;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.diff-view {
+  display: grid;
+  gap: 6px;
+  max-height: 340px;
+  overflow: auto;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.diff-line {
+  margin: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-same {
+  color: #3f4b59;
+}
+
+.diff-added {
+  color: #135c36;
+  background: #e5f5e9;
+}
+
+.diff-removed {
+  color: #8a2626;
+  background: #ffe9e8;
+  text-decoration: line-through;
 }
 
 .memory-panel {
@@ -416,6 +519,11 @@ button:hover {
 
   .workspace {
     min-height: auto;
+  }
+
+  .market-grid,
+  .metric-grid {
+    grid-template-columns: 1fr;
   }
 
   .memory-list {

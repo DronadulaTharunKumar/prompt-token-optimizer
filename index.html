@@ -93,6 +93,36 @@
               </label>
             </div>
 
+            <div class="optimizer-lab">
+              <div class="panel-header">
+                <h2>Market Optimizer</h2>
+                <span class="pill" id="taskBadge">Creative</span>
+              </div>
+
+              <div class="controls">
+                <label>
+                  Safety scale
+                  <input id="safetyScale" type="range" min="0" max="100" step="5" value="35">
+                  <span id="safetyLabel">Balanced</span>
+                </label>
+
+                <label>
+                  Bypass under
+                  <input id="bypassThreshold" type="number" min="0" step="100" value="2000">
+                </label>
+
+                <label>
+                  Anchor terms
+                  <input id="anchorTerms" type="text" placeholder="API keys, JSON schema, function names">
+                </label>
+
+                <label class="check-row">
+                  <input id="freezeBlocks" type="checkbox" checked>
+                  Preserve cache blocks
+                </label>
+              </div>
+            </div>
+
             <div class="action-row">
               <button class="secondary" id="sampleBtn" type="button">Use sample</button>
               <button class="primary" id="generateBtn" type="button">Create pro prompt</button>
@@ -126,6 +156,49 @@
             </div>
           </section>
         </div>
+
+        <section class="market-grid">
+          <section class="panel dashboard-panel" aria-label="Optimization dashboard">
+            <div class="panel-header">
+              <h2>Optimization Dashboard</h2>
+              <button id="runLocalBtn" type="button">Run local engine</button>
+            </div>
+            <div class="metric-grid">
+              <div>
+                <strong id="detectedTask">Creative</strong>
+                <small>detected task</small>
+              </div>
+              <div>
+                <strong id="pipelineStatus">Ready</strong>
+                <small>pipeline route</small>
+              </div>
+              <div>
+                <strong id="riskScore">Low</strong>
+                <small>data-loss risk</small>
+              </div>
+              <div>
+                <strong id="costBefore">$0.0000</strong>
+                <small>before cost</small>
+              </div>
+              <div>
+                <strong id="costAfter">$0.0000</strong>
+                <small>after cost</small>
+              </div>
+              <div>
+                <strong id="cacheStatus">Stable</strong>
+                <small>cache status</small>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel diff-panel" aria-label="Diff viewer">
+            <div class="panel-header">
+              <h2>Diff Viewer</h2>
+              <small id="diffSummary">No changes yet</small>
+            </div>
+            <div class="diff-view" id="diffView"></div>
+          </section>
+        </section>
 
         <section class="panel memory-panel" aria-label="Prompt memory">
           <div class="panel-header memory-header">

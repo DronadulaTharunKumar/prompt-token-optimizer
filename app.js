@@ -20,11 +20,26 @@ const generateBtn = document.querySelector("#generateBtn");
 const statusLine = document.querySelector("#statusLine");
 const memoryList = document.querySelector("#memoryList");
 const memoryCount = document.querySelector("#memoryCount");
+const safetyScale = document.querySelector("#safetyScale");
+const safetyLabel = document.querySelector("#safetyLabel");
+const bypassThreshold = document.querySelector("#bypassThreshold");
+const anchorTerms = document.querySelector("#anchorTerms");
+const freezeBlocks = document.querySelector("#freezeBlocks");
+const taskBadge = document.querySelector("#taskBadge");
+const detectedTask = document.querySelector("#detectedTask");
+const pipelineStatus = document.querySelector("#pipelineStatus");
+const riskScore = document.querySelector("#riskScore");
+const costBefore = document.querySelector("#costBefore");
+const costAfter = document.querySelector("#costAfter");
+const cacheStatus = document.querySelector("#cacheStatus");
+const diffView = document.querySelector("#diffView");
+const diffSummary = document.querySelector("#diffSummary");
 
 let imageInfo = null;
 let imageDataUrl = "";
 let promptMemory = [];
 const memoryKey = "prompt-token-optimizer-memory";
+let lastPipeline = null;
 
 const taskFrames = {
   answer: {
@@ -93,6 +108,196 @@ const fillerPatterns = [
 function estimateTokens(text) {
   if (!text.trim()) return 0;
   return Math.max(1, Math.ceil(text.trim().length / 4));
+}
+
+function parseAnchorTerms() {
+  return anchorTerms.value
+    .split(",")
+    .map((term) => term.trim())
+    .filter(Boolean);
+}
+
+function classifyTask(text) {
+  const lower = text.toLowerCase();
+  const trimmed = text.trim();
+
+  if (/```|function\s+\w+|const\s+\w+\s*=|class\s+\w+|import\s+.+from|def\s+\w+\(|public\s+class/.test(text)) {
+    return "Code";
+  }
+
+  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+    return "JSON";
+  }
+
+  if (/\b(solve|equation|proof|calculate|derivative|integral|matrix|probability)\b/.test(lower) || /[=+\-*/^]\s*\d/.test(text)) {
+    return "Math";
+  }
+
+  if (/\b(summarize|rewrite|compress|shorten|extract)\b/.test(lower)) {
+    return "Summary";
+  }
+
+  if (/\b(ad|brand|caption|creative|story|script|campaign|visual|design|copy)\b/.test(lower)) {
+    return "Creative";
+  }
+
+  if (/\b(research|compare|sources|market|competitor|analysis)\b/.test(lower)) {
+    return "Research";
+  }
+
+  return "General";
+}
+
+function getSafetyProfile() {
+  const value = Number(safetyScale.value);
+  if (value <= 20) return { label: "Ultra-conservative", value };
+  if (value <= 45) return { label: "Balanced", value };
+  if (value <= 70) return { label: "Assertive", value };
+  return { label: "Aggressive", value };
+}
+
+function splitFreezeBlocks(text) {
+  if (!freezeBlocks.checked) {
+    return [{ type: "editable", text }];
+  }
+
+  const blocks = [];
+  const pattern = /(\[FREEZE\][\s\S]*?\[\/FREEZE\]|```[\s\S]*?```)/gi;
+  let cursor = 0;
+  let match;
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > cursor) {
+      blocks.push({ type: "editable", text: text.slice(cursor, match.index) });
+    }
+    blocks.push({ type: "frozen", text: match[0] });
+    cursor = match.index + match[0].length;
+  }
+
+  if (cursor < text.length) {
+    blocks.push({ type: "editable", text: text.slice(cursor) });
+  }
+
+  return blocks.length ? blocks : [{ type: "editable", text }];
+}
+
+function stripCodeSafely(text) {
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
+    .replace(/^\s*#(?!include|define|!|region).*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function protectAnchors(text, anchors) {
+  const protectedMap = new Map();
+  let protectedText = text;
+
+  anchors.forEach((anchor, index) => {
+    const token = `__ANCHOR_${index}__`;
+    const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    protectedMap.set(token, anchor);
+    protectedText = protectedText.replace(new RegExp(escaped, "g"), token);
+  });
+
+  return { protectedText, protectedMap };
+}
+
+function restoreAnchors(text, protectedMap) {
+  let restored = text;
+  protectedMap.forEach((anchor, token) => {
+    restored = restored.replaceAll(token, anchor);
+  });
+  return restored;
+}
+
+function compressEditableText(text, task, safetyValue) {
+  const anchors = parseAnchorTerms();
+  const { protectedText, protectedMap } = protectAnchors(text, anchors);
+  let compressed = protectedText.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+  if (task === "Code") {
+    return restoreAnchors(stripCodeSafely(compressed), protectedMap);
+  }
+
+  if (task === "JSON" || task === "Math") {
+    return restoreAnchors(compressed, protectedMap);
+  }
+
+  if (safetyValue > 25) {
+    compressed = compressed
+      .replace(/\b(please|kindly|really|very|just|maybe|sort of|I want you to|can you)\b/gi, "")
+      .replace(/\s{2,}/g, " ");
+  }
+
+  if (safetyValue > 45) {
+    compressed = compressed
+      .split(/(?<=[.!?])\s+/)
+      .filter((sentence, index, list) => {
+        const key = sentence.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 70);
+        return key && list.findIndex((other) => other.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 70) === key) === index;
+      })
+      .join(" ");
+  }
+
+  if (safetyValue > 70) {
+    const sentences = compressed.split(/(?<=[.!?])\s+/).filter(Boolean);
+    compressed = sentences.slice(0, Math.max(4, Math.ceil(sentences.length * 0.62))).join(" ");
+  }
+
+  return restoreAnchors(compressed.trim(), protectedMap);
+}
+
+function runOptimizationPipeline() {
+  const original = sourceText.value.trim();
+  const inputTokenCount = estimateTokens(original);
+  const threshold = Number(bypassThreshold.value || 0);
+  const task = classifyTask(original);
+  const safety = getSafetyProfile();
+  const strictTask = task === "JSON" || task === "Math";
+  const route = inputTokenCount < threshold
+    ? "Bypassed: under threshold"
+    : strictTask
+      ? "Protected: strict syntax"
+      : "Heuristic-first compression";
+
+  let optimizedInput = original;
+  let frozenCount = 0;
+
+  if (original && route === "Heuristic-first compression") {
+    optimizedInput = splitFreezeBlocks(original)
+      .map((block) => {
+        if (block.type === "frozen") {
+          frozenCount += 1;
+          return block.text;
+        }
+        return compressEditableText(block.text, task, safety.value);
+      })
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  if (!optimizedInput) {
+    optimizedInput = original;
+  }
+
+  lastPipeline = {
+    original,
+    optimizedInput,
+    task,
+    route,
+    safety,
+    frozenCount,
+    inputTokenCount,
+    outputTokenCount: estimateTokens(optimizedInput),
+    anchors: parseAnchorTerms()
+  };
+
+  updateMarketDashboard(lastPipeline);
+  renderDiff(original, optimizedInput);
+  return lastPipeline;
 }
 
 function cleanInput(text) {
@@ -188,9 +393,94 @@ function updateMetrics() {
   inputTokens.textContent = String(inTokens);
   outputTokens.textContent = String(outTokens);
   savedTokens.textContent = `${saved}%`;
-  compression.textContent = `${saved}%`;
+  if (!lastPipeline) {
+    compression.textContent = `${saved}%`;
+  }
   score.textContent = optimized ? String(Math.round(nextScore)) : "0";
   clarity.textContent = optimized ? (nextScore > 82 ? "Strong" : nextScore > 65 ? "Good" : "Basic") : "Waiting";
+}
+
+function estimateCost(tokens) {
+  const costPerMillionTokens = 0.10;
+  return (tokens * costPerMillionTokens) / 1_000_000;
+}
+
+function getRiskLabel(pipeline) {
+  if (!pipeline.original) return "Low";
+  if (pipeline.task === "Code" && pipeline.safety.value > 45) return "High";
+  if ((pipeline.task === "JSON" || pipeline.task === "Math") && pipeline.route.includes("compression")) return "High";
+  const reduction = pipeline.inputTokenCount
+    ? 1 - pipeline.outputTokenCount / pipeline.inputTokenCount
+    : 0;
+  if (reduction > 0.45 || pipeline.safety.value > 75) return "High";
+  if (reduction > 0.2 || pipeline.safety.value > 45) return "Medium";
+  return "Low";
+}
+
+function updateMarketDashboard(pipeline) {
+  const activePipeline = pipeline || lastPipeline || runOptimizationPipeline();
+  const reduction = activePipeline.inputTokenCount
+    ? Math.max(0, Math.round((1 - activePipeline.outputTokenCount / activePipeline.inputTokenCount) * 100))
+    : 0;
+
+  detectedTask.textContent = activePipeline.task;
+  taskBadge.textContent = activePipeline.task;
+  pipelineStatus.textContent = activePipeline.route;
+  riskScore.textContent = getRiskLabel(activePipeline);
+  costBefore.textContent = `$${estimateCost(activePipeline.inputTokenCount).toFixed(5)}`;
+  costAfter.textContent = `$${estimateCost(activePipeline.outputTokenCount).toFixed(5)}`;
+  cacheStatus.textContent = activePipeline.frozenCount
+    ? `${activePipeline.frozenCount} frozen block${activePipeline.frozenCount === 1 ? "" : "s"}`
+    : freezeBlocks.checked ? "Cache-ready" : "Dynamic";
+  compression.textContent = `${reduction}%`;
+}
+
+function renderDiff(original, optimized) {
+  diffView.innerHTML = "";
+  const originalLines = original.split(/\r?\n/).filter((line) => line.trim());
+  const optimizedLines = optimized.split(/\r?\n/).filter((line) => line.trim());
+  const maxLines = Math.max(originalLines.length, optimizedLines.length);
+  let changes = 0;
+
+  if (!original && !optimized) {
+    const line = document.createElement("p");
+    line.className = "diff-line diff-same";
+    line.textContent = "Run the optimizer to see changes.";
+    diffView.appendChild(line);
+    diffSummary.textContent = "No changes yet";
+    return;
+  }
+
+  for (let index = 0; index < maxLines; index += 1) {
+    const before = originalLines[index] || "";
+    const after = optimizedLines[index] || "";
+
+    if (before === after) {
+      const same = document.createElement("p");
+      same.className = "diff-line diff-same";
+      same.textContent = `  ${before}`;
+      diffView.appendChild(same);
+      continue;
+    }
+
+    changes += 1;
+
+    if (before) {
+      const removed = document.createElement("p");
+      removed.className = "diff-line diff-removed";
+      removed.textContent = `- ${before}`;
+      diffView.appendChild(removed);
+    }
+
+    if (after) {
+      const added = document.createElement("p");
+      added.className = "diff-line diff-added";
+      added.textContent = `+ ${after}`;
+      diffView.appendChild(added);
+    }
+  }
+
+  diffSummary.textContent = `${changes} changed line${changes === 1 ? "" : "s"}`;
 }
 
 function loadMemory() {
@@ -284,6 +574,7 @@ function savePrompt() {
     taskType: taskType.value,
     tone: tone.value,
     budget: Number(budget.value),
+    pipeline: lastPipeline,
     createdAt: new Date().toISOString()
   };
 
@@ -310,6 +601,7 @@ function loadSavedPrompt(id) {
   budgetLabel.textContent = `${budget.value} tokens`;
   updateMetrics();
   setStatus("Saved prompt loaded.", "success");
+  runOptimizationPipeline();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -337,9 +629,16 @@ function clearMemory() {
 }
 
 function generatePrompt() {
+  const pipeline = runOptimizationPipeline();
+  const originalValue = sourceText.value;
+  if (pipeline.optimizedInput) {
+    sourceText.value = pipeline.optimizedInput;
+  }
   optimizedPrompt.value = buildPrompt();
+  sourceText.value = originalValue;
   setStatus("Local fallback prompt generated.", "success");
   updateMetrics();
+  updateMarketDashboard(pipeline);
 }
 
 function setStatus(message, state = "") {
@@ -352,7 +651,13 @@ function setStatus(message, state = "") {
 }
 
 async function generateAiPrompt() {
+  const pipeline = runOptimizationPipeline();
+  const originalValue = sourceText.value;
+  if (pipeline.optimizedInput) {
+    sourceText.value = pipeline.optimizedInput;
+  }
   const fallback = buildPrompt();
+  sourceText.value = originalValue;
   optimizedPrompt.value = fallback;
   updateMetrics();
 
@@ -367,7 +672,7 @@ async function generateAiPrompt() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        text: sourceText.value,
+        text: pipeline.optimizedInput || sourceText.value,
         taskType: taskType.value,
         tone: tone.value,
         budget: Number(budget.value),
@@ -383,10 +688,12 @@ async function generateAiPrompt() {
     optimizedPrompt.value = data.optimized || fallback;
     setStatus(`AI optimized with ${data.provider || "AI"}: ${data.model}.`, "success");
     updateMetrics();
+    updateMarketDashboard(pipeline);
   } catch (error) {
     optimizedPrompt.value = fallback;
     setStatus(`${error.message} Using local fallback.`, "error");
     updateMetrics();
+    updateMarketDashboard(pipeline);
   } finally {
     generateBtn.disabled = false;
     generateBtn.textContent = "Create pro prompt";
@@ -457,12 +764,23 @@ budget.addEventListener("input", () => {
   if (optimizedPrompt.value) generatePrompt();
 });
 
-sourceText.addEventListener("input", updateMetrics);
+function refreshPipelinePreview() {
+  safetyLabel.textContent = getSafetyProfile().label;
+  runOptimizationPipeline();
+  updateMetrics();
+}
+
+sourceText.addEventListener("input", refreshPipelinePreview);
 taskType.addEventListener("change", generatePrompt);
 tone.addEventListener("change", generatePrompt);
 includeImage.addEventListener("change", generatePrompt);
 imageInput.addEventListener("change", (event) => readImage(event.target.files[0]));
+safetyScale.addEventListener("input", refreshPipelinePreview);
+bypassThreshold.addEventListener("input", refreshPipelinePreview);
+anchorTerms.addEventListener("input", refreshPipelinePreview);
+freezeBlocks.addEventListener("change", refreshPipelinePreview);
 generateBtn.addEventListener("click", generateAiPrompt);
+document.querySelector("#runLocalBtn").addEventListener("click", generatePrompt);
 document.querySelector("#sampleBtn").addEventListener("click", useSample);
 document.querySelector("#saveBtn").addEventListener("click", savePrompt);
 document.querySelector("#copyBtn").addEventListener("click", copyPrompt);
@@ -472,4 +790,5 @@ document.querySelector("#exportMemoryBtn").addEventListener("click", exportMemor
 document.querySelector("#clearMemoryBtn").addEventListener("click", clearMemory);
 
 loadMemory();
+safetyLabel.textContent = getSafetyProfile().label;
 useSample();
