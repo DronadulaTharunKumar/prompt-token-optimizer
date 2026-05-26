@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prompt Token Optimizer</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="app-title">
+        <div class="topbar">
+          <div>
+            <p class="eyebrow">AI Token Manager</p>
+            <h1 id="app-title">Prompt Token Optimizer</h1>
+          </div>
+          <div class="stats" aria-label="Token estimate">
+            <div>
+              <span id="inputTokens">0</span>
+              <small>input tokens</small>
+            </div>
+            <div>
+              <span id="outputTokens">0</span>
+              <small>prompt tokens</small>
+            </div>
+            <div>
+              <span id="savedTokens">0%</span>
+              <small>saved</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="panes">
+          <section class="panel input-panel" aria-label="Input">
+            <div class="panel-header">
+              <h2>Input</h2>
+              <button class="icon-button" id="clearBtn" type="button" title="Clear all" aria-label="Clear all">X</button>
+            </div>
+
+            <label for="sourceText">Text, rough notes, or current prompt</label>
+            <textarea id="sourceText" placeholder="Paste your rough prompt, task details, notes, or messy text here..."></textarea>
+
+            <div class="upload-row">
+              <label class="file-picker" for="imageInput">
+                <span>+</span>
+                <strong>Add image</strong>
+                <small>PNG, JPG, WebP, GIF</small>
+              </label>
+              <input id="imageInput" type="file" accept="image/*">
+              <div class="image-card" id="imageCard" hidden>
+                <img id="preview" alt="Uploaded preview">
+                <div>
+                  <strong id="imageName">Image</strong>
+                  <small id="imageMeta">Ready</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="controls">
+              <label>
+                Task type
+                <select id="taskType">
+                  <option value="answer">Direct answer</option>
+                  <option value="code">Code or debugging</option>
+                  <option value="image">Image analysis</option>
+                  <option value="research">Research brief</option>
+                  <option value="summary">Summary or rewrite</option>
+                  <option value="creative" selected>Creative output</option>
+                </select>
+              </label>
+
+              <label>
+                Output style
+                <select id="tone">
+                  <option value="proCreative" selected>Pro creative</option>
+                  <option value="expert">Expert and concise</option>
+                  <option value="stepwise">Step-by-step</option>
+                  <option value="executive">Executive summary</option>
+                  <option value="teacher">Clear teacher</option>
+                  <option value="builder">Implementation-ready</option>
+                </select>
+              </label>
+
+              <label>
+                Token budget
+                <input id="budget" type="range" min="100" max="1500" step="50" value="500">
+                <span id="budgetLabel">500 tokens</span>
+              </label>
+
+              <label class="check-row">
+                <input id="includeImage" type="checkbox" checked>
+                Include image instructions
+              </label>
+            </div>
+
+            <div class="action-row">
+              <button class="secondary" id="sampleBtn" type="button">Use sample</button>
+              <button class="primary" id="generateBtn" type="button">Create pro prompt</button>
+            </div>
+          </section>
+
+          <section class="panel output-panel" aria-label="Optimized prompt">
+            <div class="panel-header">
+              <h2>Optimized Prompt</h2>
+              <div class="button-group">
+                <button id="copyBtn" type="button">Copy</button>
+                <button id="downloadBtn" type="button">Download</button>
+              </div>
+            </div>
+            <textarea id="optimizedPrompt" readonly placeholder="Your optimized prompt will appear here."></textarea>
+            <div class="quality-strip">
+              <div>
+                <strong id="score">0</strong>
+                <small>prompt score</small>
+              </div>
+              <div>
+                <strong id="clarity">Waiting</strong>
+                <small>clarity</small>
+              </div>
+              <div>
+                <strong id="compression">0%</strong>
+                <small>compression</small>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

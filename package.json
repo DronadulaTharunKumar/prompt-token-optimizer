@@ -1,0 +1,17 @@
+{
+  "name": "prompt-token-optimizer",
+  "version": "1.0.0",
+  "description": "A local web tool that turns rough text and image context into optimized prompts.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "prompt",
+    "token",
+    "optimizer",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT"
+}
