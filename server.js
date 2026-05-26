@@ -132,7 +132,7 @@ async function callGroq(payload) {
         }
       ],
       temperature: 0.75,
-      max_completion_tokens: Math.min(Math.max(budget + 250, 350), 1800)
+      max_completion_tokens: Math.min(Math.max(budget + 900, 1200), 2600)
     })
   });
 
@@ -182,7 +182,7 @@ async function callOpenAi(payload) {
           content: userContent
         }
       ],
-      max_output_tokens: Math.min(Math.max(budget + 250, 350), 1800)
+      max_output_tokens: Math.min(Math.max(budget + 450, 700), 2200)
     })
   });
 
