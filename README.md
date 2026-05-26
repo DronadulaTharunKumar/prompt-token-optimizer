@@ -18,25 +18,45 @@ http://localhost:3000
 
 You can still open `index.html` directly if you want the no-server version.
 
+## Enable AI Optimization
+
+Create a `.env` file in this folder:
+
+```text
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Then restart the server:
+
+```bash
+npm start
+```
+
+Without `OPENAI_API_KEY`, the app still works with its local fallback optimizer. With the key, the browser calls `/api/optimize`, and the server securely sends the request to OpenAI.
+
 ## Deploy To Cloud
 
 ### Vercel
 
 1. Push this folder to GitHub.
 2. Import the repo in Vercel.
-3. Keep the default settings and deploy.
+3. Add environment variable `OPENAI_API_KEY`.
+4. Keep the default settings and deploy.
 
 ### Netlify
 
 1. Push this folder to GitHub.
 2. Import the repo in Netlify.
-3. Use publish directory `.` and no build command.
+3. Add environment variable `OPENAI_API_KEY`.
+4. Use publish directory `.` and no build command.
 
 ### Render
 
 1. Push this folder to GitHub.
 2. Create a new Render web service from the repo.
-3. Render can use `render.yaml`, or set:
+3. Add environment variable `OPENAI_API_KEY`.
+4. Render can use `render.yaml`, or set:
 
 ```text
 Build command: npm install

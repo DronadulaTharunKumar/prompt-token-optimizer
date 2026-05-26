@@ -16,8 +16,11 @@ const savedTokens = document.querySelector("#savedTokens");
 const score = document.querySelector("#score");
 const clarity = document.querySelector("#clarity");
 const compression = document.querySelector("#compression");
+const generateBtn = document.querySelector("#generateBtn");
+const statusLine = document.querySelector("#statusLine");
 
 let imageInfo = null;
+let imageDataUrl = "";
 
 const taskFrames = {
   answer: {
@@ -188,7 +191,59 @@ function updateMetrics() {
 
 function generatePrompt() {
   optimizedPrompt.value = buildPrompt();
+  setStatus("Local fallback prompt generated.", "success");
   updateMetrics();
+}
+
+function setStatus(message, state = "") {
+  statusLine.textContent = message;
+  if (state) {
+    statusLine.dataset.state = state;
+  } else {
+    delete statusLine.dataset.state;
+  }
+}
+
+async function generateAiPrompt() {
+  const fallback = buildPrompt();
+  optimizedPrompt.value = fallback;
+  updateMetrics();
+
+  generateBtn.disabled = true;
+  generateBtn.textContent = "Optimizing...";
+  setStatus("Calling AI optimizer securely from the local server...");
+
+  try {
+    const response = await fetch("/api/optimize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: sourceText.value,
+        taskType: taskType.value,
+        tone: tone.value,
+        budget: Number(budget.value),
+        imageDataUrl: includeImage.checked ? imageDataUrl : ""
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "AI optimization failed.");
+    }
+
+    optimizedPrompt.value = data.optimized || fallback;
+    setStatus(`AI optimized with ${data.model}.`, "success");
+    updateMetrics();
+  } catch (error) {
+    optimizedPrompt.value = fallback;
+    setStatus(`${error.message} Using local fallback.`, "error");
+    updateMetrics();
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.textContent = "Create pro prompt";
+  }
 }
 
 function copyPrompt() {
@@ -211,7 +266,9 @@ function clearAll() {
   optimizedPrompt.value = "";
   imageInput.value = "";
   imageInfo = null;
+  imageDataUrl = "";
   imageCard.hidden = true;
+  setStatus("Local fallback ready. Add OpenAI API key for AI optimization.");
   updateMetrics();
 }
 
@@ -228,7 +285,8 @@ function readImage(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    preview.src = reader.result;
+    imageDataUrl = String(reader.result);
+    preview.src = imageDataUrl;
     const img = new Image();
     img.onload = () => {
       imageInfo = {
@@ -242,7 +300,7 @@ function readImage(file) {
       imageCard.hidden = false;
       generatePrompt();
     };
-    img.src = reader.result;
+    img.src = imageDataUrl;
   };
   reader.readAsDataURL(file);
 }
@@ -257,7 +315,7 @@ taskType.addEventListener("change", generatePrompt);
 tone.addEventListener("change", generatePrompt);
 includeImage.addEventListener("change", generatePrompt);
 imageInput.addEventListener("change", (event) => readImage(event.target.files[0]));
-document.querySelector("#generateBtn").addEventListener("click", generatePrompt);
+generateBtn.addEventListener("click", generateAiPrompt);
 document.querySelector("#sampleBtn").addEventListener("click", useSample);
 document.querySelector("#copyBtn").addEventListener("click", copyPrompt);
 document.querySelector("#downloadBtn").addEventListener("click", downloadPrompt);
